@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Cellular Flower Growth</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+  </style>
+</head>
+<body>
+<script>
+let growth = 0;
+const maxGrowth = 1;
+const growthSpeed = 0.005;
+
+function setup(){
+  createCanvas(windowWidth, windowHeight, WEBGL);
+  angleMode(RADIANS);
+}
+
+function draw(){
+  background(30);
+  // Slight rotations for a dynamic 3D view
+  rotateX(-PI/6);
+  rotateY(frameCount * 0.01);
+  
+  // Draw stem (optional)
+  push();
+    stroke(34,139,34);
+    strokeWeight(8);
+    line(0, height/2 - 50, 0, 0, -50, 0);
+  pop();
+  
+  // Gradually increase growth factor (0: bud, 1: fully bloomed)
+  if(growth < maxGrowth) growth += growthSpeed;
+  
+  // Draw flower center
+  push();
+    translate(0, -50, 0);
+    noStroke();
+    fill(255, 204, 0);
+    sphere(10);
+  pop();
+  
+  // Draw multiple petals around the center
+  let numPetals = 8;
+  for (let i = 0; i < numPetals; i++){
+    push();
+      rotateY(TWO_PI/numPetals * i);
+      translate(0, -50, 0);
+      drawPetal(growth);
+    pop();
+  }
+}
+
+function drawPetal(g){
+  // Define petal dimensions
+  const petalLength = 150;
+  const petalWidth = 60;
+  const petalCurve = 30;
+  // Granularity: number of cells along length and width
+  const cellsU = 20;
+  const cellsV = 10;
+  
+  for (let i = 0; i < cellsU; i++){
+    for (let j = 0; j < cellsV; j++){
+      // u from 0 to 1 along petal length, v from -1 to 1 across petal width
+      let u = i / (cellsU - 1);
+      let v = map(j, 0, cellsV - 1, -1, 1);
+      
+      // Final petal shape: taper width as u increases, and add a curvature in z
+      let finalX = petalLength * u;
+      let finalY = v * petalWidth * (1 - u);
+      let finalZ = petalCurve * sin(PI * u);
+      
+      // Each cell grows from the center to its final position based on growth parameter g
+      let currentX = lerp(0, finalX, g);
+      let currentY = lerp(0, finalY, g);
+      let currentZ = lerp(0, finalZ, g);
+      
+      push();
+        translate(currentX, currentY, currentZ);
+        noStroke();
+        fill(255, 100, 150, 200);
+        sphere(2);
+      pop();
+    }
+  }
+}
+
+function windowResized(){
+  resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Phyllotaxis with p5.js</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+  </style>
+</head>
+<body>
+<script>
+let n = 0;
+const c = 6;
+const goldenAngle = 137.5;
+const maxPoints = 3000;
+
+function setup() {
+  createCanvas(windowWidth, windowHeight, WEBGL);
+  strokeWeight(4);
+}
+
+function draw() {
+  background(0);
+  rotateY(frameCount * 0.005);
+  translate(0, 0, -maxPoints * 0.2 / 2); // center along z
+
+  colorMode(HSB, 360, 100, 100);
+  for (let i = 0; i < n; i++) {
+    let radius = c * sqrt(i);
+    let theta = radians(i * goldenAngle);
+    let x = radius * cos(theta);
+    let y = radius * sin(theta);
+    let z = i * 0.2; // vertical spacing
+
+    stroke(i % 360, 100, 100);
+    point(x, y, z);
+  }
+  if (n < maxPoints) n++;
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+</script>
+</body>
+</html>
