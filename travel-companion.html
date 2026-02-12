@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Local Explorer - Your Travel Companion</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-2: #242836;
+      --accent: #6c63ff;
+      --accent-glow: rgba(108, 99, 255, 0.3);
+      --text: #e8e8ed;
+      --text-dim: #9ca3af;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --restaurant: #f97316;
+      --shop: #a78bfa;
+      --event: #ec4899;
+      --history: #38bdf8;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---- Splash Screen ---- */
+    #splash {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.6s, visibility 0.6s;
+    }
+    #splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    #splash .logo { font-size: 64px; margin-bottom: 16px; animation: pulse-logo 2s infinite; }
+    @keyframes pulse-logo {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    #splash h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+    #splash p { color: var(--text-dim); font-size: 14px; margin-bottom: 32px; }
+    #splash .start-btn {
+      background: var(--accent);
+      color: #fff; border: none;
+      padding: 16px 48px;
+      border-radius: 50px;
+      font-size: 16px; font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 0 30px var(--accent-glow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #splash .start-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px var(--accent-glow); }
+    #splash .start-btn:active { transform: scale(0.97); }
+
+    /* ---- Header ---- */
+    header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(15, 17, 23, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 12px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    header .brand { display: flex; align-items: center; gap: 10px; }
+    header .brand span:first-child { font-size: 24px; }
+    header .brand span:last-child { font-weight: 600; font-size: 16px; }
+    .header-actions { display: flex; gap: 8px; }
+    .icon-btn {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .icon-btn:hover { background: var(--surface-2); border-color: var(--accent); }
+    .icon-btn.active { background: var(--accent); border-color: var(--accent); }
+
+    /* ---- Location Banner ---- */
+    #location-banner {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+      margin: 16px;
+      padding: 20px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,0.06);
+      position: relative;
+      overflow: hidden;
+    }
+    #location-banner::before {
+      content: '';
+      position: absolute;
+      top: -50%; right: -30%;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    #location-banner .coords {
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    #location-banner .place-name {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    #location-banner .place-detail {
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+    #location-banner .accuracy {
+      position: absolute;
+      top: 16px; right: 16px;
+      display: flex; align-items: center; gap: 4px;
+      font-size: 11px; color: var(--success);
+    }
+    #location-banner .accuracy .dot {
+      width: 8px; height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: blink 2s infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* ---- Category Tabs ---- */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 0 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      margin-bottom: 8px;
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      border-radius: 50px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: var(--surface);
+      color: var(--text-dim);
+      transition: all 0.25s;
+      display: flex; align-items: center; gap: 6px;
+      white-space: nowrap;
+    }
+    .tab:hover { border-color: rgba(255,255,255,0.15); color: var(--text); }
+    .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tab .badge {
+      background: rgba(255,255,255,0.2);
+      padding: 1px 7px;
+      border-radius: 50px;
+      font-size: 11px;
+    }
+
+    /* ---- Content Area ---- */
+    #content {
+      padding: 8px 16px 100px;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      margin: 16px 0 12px;
+    }
+
+    /* ---- Cards ---- */
+    .card {
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,0.12);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+    .card:active { transform: scale(0.98); }
+    .card .card-icon {
+      width: 42px; height: 42px;
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+    .card .card-icon.history { background: rgba(56, 189, 248, 0.15); }
+    .card .card-icon.restaurant { background: rgba(249, 115, 22, 0.15); }
+    .card .card-icon.shop { background: rgba(167, 139, 250, 0.15); }
+    .card .card-icon.event { background: rgba(236, 72, 153, 0.15); }
+    .card .card-title {
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+    .card .card-desc {
+      color: var(--text-dim);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .card .card-meta {
+      display: flex; align-items: center; gap: 12px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .card .card-meta .tag {
+      padding: 3px 10px;
+      border-radius: 50px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .tag.history-tag { background: rgba(56, 189, 248, 0.15); color: var(--history); }
+    .tag.restaurant-tag { background: rgba(249, 115, 22, 0.15); color: var(--restaurant); }
+    .tag.shop-tag { background: rgba(167, 139, 250, 0.15); color: var(--shop); }
+    .tag.event-tag { background: rgba(236, 72, 153, 0.15); color: var(--event); }
+
+    .card .distance {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .card .speak-btn {
+      position: absolute;
+      top: 16px; right: 16px;
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: var(--surface-2);
+      color: var(--text-dim);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .card .speak-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .card .speak-btn.speaking { background: var(--accent); color: #fff; border-color: var(--accent); animation: pulse-speak 1s infinite; }
+    @keyframes pulse-speak {
+      0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+      50% { box-shadow: 0 0 0 8px transparent; }
+    }
+
+    /* ---- Voice Bar ---- */
+    #voice-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(26, 29, 39, 0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 12px 20px;
+      display: flex; align-items: center; gap: 12px;
+      transform: translateY(100%);
+      transition: transform 0.3s;
+      z-index: 200;
+    }
+    #voice-bar.visible { transform: translateY(0); }
+    #voice-bar .wave {
+      display: flex; align-items: center; gap: 3px;
+      height: 24px;
+    }
+    #voice-bar .wave .bar {
+      width: 3px;
+      background: var(--accent);
+      border-radius: 3px;
+      animation: wave-bar 0.8s ease-in-out infinite;
+    }
+    #voice-bar .wave .bar:nth-child(1) { animation-delay: 0s; height: 8px; }
+    #voice-bar .wave .bar:nth-child(2) { animation-delay: 0.1s; height: 16px; }
+    #voice-bar .wave .bar:nth-child(3) { animation-delay: 0.2s; height: 12px; }
+    #voice-bar .wave .bar:nth-child(4) { animation-delay: 0.3s; height: 20px; }
+    #voice-bar .wave .bar:nth-child(5) { animation-delay: 0.15s; height: 10px; }
+    @keyframes wave-bar {
+      0%, 100% { transform: scaleY(1); }
+      50% { transform: scaleY(0.4); }
+    }
+    #voice-bar .voice-text {
+      flex: 1;
+      font-size: 13px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #voice-bar .stop-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: none;
+      background: var(--danger);
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ---- Loading / Empty ---- */
+    .loading-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 60px 20px;
+      color: var(--text-dim);
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--surface-2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-dim);
+    }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ---- Detail Modal ---- */
+    #modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 500;
+      opacity: 0; visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+    }
+    #modal-overlay.visible { opacity: 1; visibility: visible; }
+    #modal {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      max-height: 85vh;
+      background: var(--surface);
+      border-radius: var(--radius) var(--radius) 0 0;
+      z-index: 501;
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+      overflow-y: auto;
+    }
+    #modal.visible { transform: translateY(0); }
+    #modal .modal-handle {
+      width: 36px; height: 4px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
+      margin: 12px auto 0;
+    }
+    #modal .modal-body { padding: 20px 20px 40px; }
+    #modal .modal-icon { font-size: 40px; margin-bottom: 12px; }
+    #modal .modal-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    #modal .modal-category {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 50px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+    #modal .modal-text {
+      color: var(--text-dim);
+      font-size: 14px;
+      line-height: 1.8;
+      margin-bottom: 20px;
+    }
+    #modal .modal-actions {
+      display: flex; gap: 10px;
+    }
+    #modal .modal-actions button {
+      flex: 1;
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255,255,255,0.1);
+      background: var(--surface-2);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.2s;
+    }
+    #modal .modal-actions button:hover { background: rgba(255,255,255,0.1); }
+    #modal .modal-actions button.primary { background: var(--accent); border-color: var(--accent); }
+
+    /* ---- Refresh FAB ---- */
+    #refresh-fab {
+      position: fixed;
+      bottom: 20px; right: 20px;
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px var(--accent-glow);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.2s;
+      z-index: 50;
+    }
+    #refresh-fab:hover { transform: scale(1.1); }
+    #refresh-fab:active { transform: scale(0.95); }
+    #refresh-fab.spinning svg { animation: spin 0.8s linear infinite; }
+
+    /* ---- Error Banner ---- */
+    .error-banner {
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      color: var(--danger);
+      padding: 12px 16px;
+      margin: 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      display: none;
+    }
+    .error-banner.visible { display: block; }
+
+    /* ---- Responsive ---- */
+    @media (min-width: 768px) {
+      #content { max-width: 640px; margin: 0 auto; }
+      #location-banner { max-width: 640px; margin: 16px auto; }
+      .tabs { max-width: 640px; margin: 0 auto 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Splash Screen -->
+<div id="splash">
+  <div class="logo">🧭</div>
+  <h1>Local Explorer</h1>
+  <p>Your AI-powered travel companion</p>
+  <button class="start-btn" id="start-btn">Explore My Location</button>
+</div>
+
+<!-- Main App -->
+<div id="app" style="display:none">
+
+  <header>
+    <div class="brand">
+      <span>🧭</span>
+      <span>Local Explorer</span>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="voice-toggle" title="Toggle Voice Guide">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      </button>
+      <button class="icon-btn" id="locate-btn" title="Update Location">
+        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="location-banner">
+    <div class="accuracy"><div class="dot"></div> <span id="accuracy-text">Locating...</span></div>
+    <div class="coords" id="coords">-- , --</div>
+    <div class="place-name" id="place-name">Detecting location...</div>
+    <div class="place-detail" id="place-detail">Please allow location access</div>
+  </div>
+
+  <div class="error-banner" id="error-banner"></div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-cat="all">All</div>
+    <div class="tab" data-cat="history">🏛 History <span class="badge" id="badge-history">0</span></div>
+    <div class="tab" data-cat="restaurant">🍽 Eat <span class="badge" id="badge-restaurant">0</span></div>
+    <div class="tab" data-cat="shop">🛍 Shop <span class="badge" id="badge-shop">0</span></div>
+    <div class="tab" data-cat="event">🎶 Events <span class="badge" id="badge-event">0</span></div>
+  </div>
+
+  <div id="content">
+    <div class="loading-state" id="loading">
+      <div class="spinner"></div>
+      <p>Discovering your surroundings...</p>
+    </div>
+    <div id="cards-container"></div>
+  </div>
+
+  <button id="refresh-fab" title="Refresh">
+    <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+  </button>
+
+</div>
+
+<!-- Voice Bar -->
+<div id="voice-bar">
+  <div class="wave">
+    <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+  </div>
+  <div class="voice-text" id="voice-text">Speaking...</div>
+  <button class="stop-btn" id="stop-voice" title="Stop">
+    <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+  </button>
+</div>
+
+<!-- Detail Modal -->
+<div id="modal-overlay"></div>
+<div id="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-body">
+    <div class="modal-icon" id="modal-icon"></div>
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-category" id="modal-category"></div>
+    <div class="modal-text" id="modal-text"></div>
+    <div class="modal-actions">
+      <button id="modal-speak-btn" class="primary">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        Listen
+      </button>
+      <button id="modal-map-btn">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Directions
+      </button>
+      <button id="modal-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================
+// Local Explorer - Travel Companion App
+// ==========================================
+
+const App = {
+  lat: null,
+  lon: null,
+  placeName: '',
+  items: [],
+  activeCategory: 'all',
+  voiceEnabled: true,
+  synth: window.speechSynthesis,
+  currentUtterance: null,
+  selectedItem: null,
+
+  // DOM refs
+  el: {
+    splash: document.getElementById('splash'),
+    startBtn: document.getElementById('start-btn'),
+    app: document.getElementById('app'),
+    coords: document.getElementById('coords'),
+    placeName: document.getElementById('place-name'),
+    placeDetail: document.getElementById('place-detail'),
+    accuracyText: document.getElementById('accuracy-text'),
+    loading: document.getElementById('loading'),
+    cards: document.getElementById('cards-container'),
+    tabs: document.getElementById('tabs'),
+    voiceToggle: document.getElementById('voice-toggle'),
+    locateBtn: document.getElementById('locate-btn'),
+    refreshFab: document.getElementById('refresh-fab'),
+    voiceBar: document.getElementById('voice-bar'),
+    voiceText: document.getElementById('voice-text'),
+    stopVoice: document.getElementById('stop-voice'),
+    errorBanner: document.getElementById('error-banner'),
+    modalOverlay: document.getElementById('modal-overlay'),
+    modal: document.getElementById('modal'),
+    modalIcon: document.getElementById('modal-icon'),
+    modalTitle: document.getElementById('modal-title'),
+    modalCategory: document.getElementById('modal-category'),
+    modalText: document.getElementById('modal-text'),
+    modalSpeakBtn: document.getElementById('modal-speak-btn'),
+    modalMapBtn: document.getElementById('modal-map-btn'),
+    modalCloseBtn: document.getElementById('modal-close-btn'),
+  },
+
+  init() {
+    this.el.startBtn.addEventListener('click', () => this.start());
+    this.el.voiceToggle.addEventListener('click', () => this.toggleVoice());
+    this.el.locateBtn.addEventListener('click', () => this.refreshLocation());
+    this.el.refreshFab.addEventListener('click', () => this.refreshLocation());
+    this.el.stopVoice.addEventListener('click', () => this.stopSpeaking());
+    this.el.modalOverlay.addEventListener('click', () => this.closeModal());
+    this.el.modalCloseBtn.addEventListener('click', () => this.closeModal());
+    this.el.modalSpeakBtn.addEventListener('click', () => {
+      if (this.selectedItem) this.speak(this.selectedItem.title + '. ' + this.selectedItem.description);
+    });
+    this.el.modalMapBtn.addEventListener('click', () => {
+      if (this.selectedItem && this.selectedItem.lat) {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${this.selectedItem.lat},${this.selectedItem.lon}`, '_blank');
+      } else if (this.selectedItem) {
+        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(this.selectedItem.title)}`, '_blank');
+      }
+    });
+
+    // Tab clicks
+    this.el.tabs.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        this.el.tabs.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        this.activeCategory = tab.dataset.cat;
+        this.renderCards();
+      });
+    });
+  },
+
+  async start() {
+    this.el.splash.classList.add('hidden');
+    setTimeout(() => { this.el.app.style.display = ''; }, 300);
+    await this.getLocation();
+  },
+
+  async getLocation() {
+    this.showLoading(true);
+    this.showError('');
+
+    if (!navigator.geolocation) {
+      this.showError('Geolocation is not supported by your browser.');
+      this.showLoading(false);
+      return;
+    }
+
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 60000
+        });
+      });
+
+      this.lat = pos.coords.latitude;
+      this.lon = pos.coords.longitude;
+      const acc = Math.round(pos.coords.accuracy);
+
+      this.el.coords.textContent = `${this.lat.toFixed(5)}, ${this.lon.toFixed(5)}`;
+      this.el.accuracyText.textContent = `${acc}m accuracy`;
+
+      await this.loadAllData();
+
+    } catch (err) {
+      let msg = 'Unable to get your location. ';
+      if (err.code === 1) msg += 'Please allow location access in your browser settings.';
+      else if (err.code === 2) msg += 'Position unavailable.';
+      else if (err.code === 3) msg += 'Request timed out. Try again.';
+      this.showError(msg);
+      this.showLoading(false);
+      this.el.placeName.textContent = 'Location unavailable';
+      this.el.placeDetail.textContent = msg;
+    }
+  },
+
+  async refreshLocation() {
+    this.el.refreshFab.classList.add('spinning');
+    await this.getLocation();
+    this.el.refreshFab.classList.remove('spinning');
+  },
+
+  async loadAllData() {
+    this.items = [];
+    this.showLoading(true);
+
+    try {
+      // Run all fetches in parallel
+      const [reverseGeo, wikiResults, nearbyPOIs] = await Promise.allSettled([
+        this.reverseGeocode(),
+        this.fetchWikipedia(),
+        this.fetchNearbyPOIs()
+      ]);
+
+      if (reverseGeo.status === 'fulfilled' && reverseGeo.value) {
+        const geo = reverseGeo.value;
+        this.placeName = geo.display_name;
+        const addr = geo.address || {};
+        const city = addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
+        const state = addr.state || '';
+        const country = addr.country || '';
+        this.el.placeName.textContent = city || geo.display_name.split(',')[0];
+        this.el.placeDetail.textContent = [city, state, country].filter(Boolean).join(', ');
+      }
+
+      if (wikiResults.status === 'fulfilled') {
+        this.items.push(...wikiResults.value);
+      }
+
+      if (nearbyPOIs.status === 'fulfilled') {
+        this.items.push(...nearbyPOIs.value);
+      }
+
+      this.updateBadges();
+      this.renderCards();
+
+      // Auto-narrate welcome
+      if (this.voiceEnabled && this.items.length > 0) {
+        const city = this.el.placeName.textContent;
+        const historyItems = this.items.filter(i => i.category === 'history');
+        let welcome = `Welcome to ${city}! I found ${this.items.length} interesting things near you. `;
+        if (historyItems.length > 0) {
+          welcome += `Here's something interesting: ${historyItems[0].title}. ${historyItems[0].description.substring(0, 200)}`;
+        }
+        this.speak(welcome);
+      }
+
+    } catch (e) {
+      console.error('Error loading data:', e);
+      this.showError('Some data could not be loaded. Pull to refresh.');
+    }
+
+    this.showLoading(false);
+  },
+
+  // ---- API: Reverse Geocode (Nominatim) ----
+  async reverseGeocode() {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${this.lat}&lon=${this.lon}&format=json&addressdetails=1&accept-language=en`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'LocalExplorerApp/1.0' } });
+    if (!res.ok) throw new Error('Geocoding failed');
+    return res.json();
+  },
+
+  // ---- API: Wikipedia nearby articles ----
+  async fetchWikipedia() {
+    const items = [];
+    try {
+      const url = `https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=5000&gscoord=${this.lat}|${this.lon}&gslimit=15&format=json&origin=*`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const pages = data.query?.geosearch || [];
+
+      // Fetch extracts for each page
+      if (pages.length > 0) {
+        const pageIds = pages.map(p => p.pageid).join('|');
+        const extractUrl = `https://en.wikipedia.org/w/api.php?action=query&pageids=${pageIds}&prop=extracts|info&exintro=1&explaintext=1&inprop=url&format=json&origin=*`;
+        const extractRes = await fetch(extractUrl);
+        const extractData = await extractRes.json();
+        const pageDetails = extractData.query?.pages || {};
+
+        for (const page of pages) {
+          const detail = pageDetails[page.pageid];
+          if (detail && detail.extract && detail.extract.length > 50) {
+            items.push({
+              id: 'wiki-' + page.pageid,
+              category: 'history',
+              title: detail.title,
+              description: detail.extract.substring(0, 500) + (detail.extract.length > 500 ? '...' : ''),
+              fullText: detail.extract,
+              icon: '🏛',
+              lat: page.lat,
+              lon: page.lon,
+              distance: page.dist,
+              url: detail.fullurl,
+              source: 'Wikipedia'
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Wikipedia error:', e);
+    }
+    return items;
+  },
+
+  // ---- API: Overpass (OpenStreetMap POIs) ----
+  async fetchNearbyPOIs() {
+    const items = [];
+    try {
+      const radius = 2000;
+      const query = `
+        [out:json][timeout:15];
+        (
+          node["amenity"="restaurant"](around:${radius},${this.lat},${this.lon});
+          node["amenity"="cafe"](around:${radius},${this.lat},${this.lon});
+          node["amenity"="bar"](around:${radius},${this.lat},${this.lon});
+          node["shop"](around:${radius},${this.lat},${this.lon});
+          node["amenity"="theatre"](around:${radius},${this.lat},${this.lon});
+          node["amenity"="cinema"](around:${radius},${this.lat},${this.lon});
+          node["amenity"="arts_centre"](around:${radius},${this.lat},${this.lon});
+          node["tourism"="museum"](around:${radius},${this.lat},${this.lon});
+          node["tourism"="gallery"](around:${radius},${this.lat},${this.lon});
+          node["tourism"="attraction"](around:${radius},${this.lat},${this.lon});
+          node["historic"](around:${radius},${this.lat},${this.lon});
+        );
+        out body 50;
+      `;
+
+      const res = await fetch('https://overpass-api.de/api/interpreter', {
+        method: 'POST',
+        body: 'data=' + encodeURIComponent(query),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+
+      const data = await res.json();
+      const elements = data.elements || [];
+
+      for (const el of elements) {
+        const tags = el.tags || {};
+        const name = tags.name || tags['name:en'];
+        if (!name) continue;
+
+        const dist = this.haversine(this.lat, this.lon, el.lat, el.lon);
+        let category, icon, tagClass;
+
+        if (tags.amenity === 'restaurant' || tags.amenity === 'cafe' || tags.amenity === 'bar') {
+          category = 'restaurant';
+          icon = tags.amenity === 'cafe' ? '☕' : tags.amenity === 'bar' ? '🍸' : '🍽';
+          tagClass = 'restaurant-tag';
+        } else if (tags.shop) {
+          category = 'shop';
+          icon = '🛍';
+          tagClass = 'shop-tag';
+        } else if (tags.amenity === 'theatre' || tags.amenity === 'cinema' || tags.amenity === 'arts_centre') {
+          category = 'event';
+          icon = tags.amenity === 'cinema' ? '🎬' : '🎭';
+          tagClass = 'event-tag';
+        } else if (tags.tourism || tags.historic) {
+          category = 'history';
+          icon = tags.tourism === 'museum' ? '🏛' : '📍';
+          tagClass = 'history-tag';
+        } else {
+          continue;
+        }
+
+        let desc = '';
+        if (tags.cuisine) desc += `Cuisine: ${tags.cuisine}. `;
+        if (tags['opening_hours']) desc += `Hours: ${tags['opening_hours']}. `;
+        if (tags.phone) desc += `Phone: ${tags.phone}. `;
+        if (tags.website) desc += `Website: ${tags.website}. `;
+        if (tags.description) desc += tags.description;
+        if (tags['addr:street']) desc += `Address: ${tags['addr:housenumber'] || ''} ${tags['addr:street']}. `;
+        if (!desc) desc = `A ${category === 'restaurant' ? (tags.amenity || 'restaurant') : (tags.shop || tags.tourism || tags.historic || category)} in the area.`;
+
+        items.push({
+          id: 'osm-' + el.id,
+          category,
+          title: name,
+          description: desc,
+          fullText: desc,
+          icon,
+          lat: el.lat,
+          lon: el.lon,
+          distance: Math.round(dist),
+          url: tags.website || null,
+          source: 'OpenStreetMap'
+        });
+      }
+
+      // Sort by distance
+      items.sort((a, b) => a.distance - b.distance);
+
+    } catch (e) {
+      console.error('Overpass error:', e);
+    }
+    return items;
+  },
+
+  // ---- Haversine distance (meters) ----
+  haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  },
+
+  // ---- Rendering ----
+  updateBadges() {
+    const counts = { history: 0, restaurant: 0, shop: 0, event: 0 };
+    this.items.forEach(i => { if (counts[i.category] !== undefined) counts[i.category]++; });
+    document.getElementById('badge-history').textContent = counts.history;
+    document.getElementById('badge-restaurant').textContent = counts.restaurant;
+    document.getElementById('badge-shop').textContent = counts.shop;
+    document.getElementById('badge-event').textContent = counts.event;
+  },
+
+  renderCards() {
+    const filtered = this.activeCategory === 'all'
+      ? this.items
+      : this.items.filter(i => i.category === this.activeCategory);
+
+    if (filtered.length === 0) {
+      this.el.cards.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <p>No results found in this category.</p>
+        </div>`;
+      return;
+    }
+
+    this.el.cards.innerHTML = filtered.map(item => `
+      <div class="card" data-id="${item.id}">
+        <button class="speak-btn" data-speak="${item.id}" title="Listen">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+        <div class="card-icon ${item.category}">${item.icon}</div>
+        <div class="card-title">${this.escapeHtml(item.title)}</div>
+        <div class="card-desc">${this.escapeHtml(item.description.substring(0, 150))}${item.description.length > 150 ? '...' : ''}</div>
+        <div class="card-meta">
+          <span class="tag ${item.category}-tag">${item.category}</span>
+          ${item.distance != null ? `<span class="distance">📍 ${item.distance < 1000 ? item.distance + 'm' : (item.distance/1000).toFixed(1) + 'km'}</span>` : ''}
+          <span>${item.source}</span>
+        </div>
+      </div>
+    `).join('');
+
+    // Card click handlers
+    this.el.cards.querySelectorAll('.card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('.speak-btn')) return;
+        const item = this.items.find(i => i.id === card.dataset.id);
+        if (item) this.openModal(item);
+      });
+    });
+
+    // Speak button handlers
+    this.el.cards.querySelectorAll('.speak-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const item = this.items.find(i => i.id === btn.dataset.speak);
+        if (item) this.speak(item.title + '. ' + item.description);
+      });
+    });
+  },
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  },
+
+  // ---- Modal ----
+  openModal(item) {
+    this.selectedItem = item;
+    this.el.modalIcon.textContent = item.icon;
+    this.el.modalTitle.textContent = item.title;
+    this.el.modalCategory.textContent = item.category;
+    this.el.modalCategory.className = `modal-category tag ${item.category}-tag`;
+    this.el.modalText.textContent = item.fullText || item.description;
+    this.el.modalOverlay.classList.add('visible');
+    this.el.modal.classList.add('visible');
+  },
+
+  closeModal() {
+    this.el.modalOverlay.classList.remove('visible');
+    this.el.modal.classList.remove('visible');
+    this.selectedItem = null;
+  },
+
+  // ---- Voice (Web Speech API) ----
+  toggleVoice() {
+    this.voiceEnabled = !this.voiceEnabled;
+    this.el.voiceToggle.classList.toggle('active', this.voiceEnabled);
+    if (!this.voiceEnabled) this.stopSpeaking();
+  },
+
+  speak(text) {
+    if (!this.synth) return;
+    this.stopSpeaking();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    // Try to use a good English voice
+    const voices = this.synth.getVoices();
+    const preferred = voices.find(v => v.name.includes('Google') && v.lang.startsWith('en')) ||
+                      voices.find(v => v.lang.startsWith('en'));
+    if (preferred) utterance.voice = preferred;
+
+    utterance.onstart = () => {
+      this.el.voiceBar.classList.add('visible');
+      this.el.voiceText.textContent = text.substring(0, 80) + (text.length > 80 ? '...' : '');
+    };
+    utterance.onend = () => {
+      this.el.voiceBar.classList.remove('visible');
+    };
+    utterance.onerror = () => {
+      this.el.voiceBar.classList.remove('visible');
+    };
+
+    this.currentUtterance = utterance;
+    this.synth.speak(utterance);
+  },
+
+  stopSpeaking() {
+    if (this.synth) this.synth.cancel();
+    this.el.voiceBar.classList.remove('visible');
+  },
+
+  // ---- Helpers ----
+  showLoading(show) {
+    this.el.loading.style.display = show ? 'flex' : 'none';
+    if (show) this.el.cards.innerHTML = '';
+  },
+
+  showError(msg) {
+    if (msg) {
+      this.el.errorBanner.textContent = msg;
+      this.el.errorBanner.classList.add('visible');
+    } else {
+      this.el.errorBanner.classList.remove('visible');
+    }
+  }
+};
+
+// Boot
+document.addEventListener('DOMContentLoaded', () => {
+  // Pre-load voices
+  if (window.speechSynthesis) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+  }
+  App.init();
+});
+</script>
+</body>
+</html>
